@@ -25,7 +25,6 @@ import {
   bannerConfigService,
   DEFAULT_BANNER_CONFIG,
 } from '../services/bannerConfigService';
-import { seedService } from '../services/seedService';
 import { BannerWallpaperConfig } from '../types';
 
 export const SettingsPage: React.FC = () => {
@@ -137,18 +136,6 @@ export const SettingsPage: React.FC = () => {
       showToast('Format berkas cadangan tidak valid atau gagal dipulihkan: ' + e.message, 'error');
     } finally {
       setRestoreLoading(false);
-    }
-  };
-
-  const handleSeedDemoData = async () => {
-    setBackupLoading(true);
-    try {
-      await seedService.seedDemoData(profile?.teacherId || 'GURU-001', profile?.displayName || 'Guru Pengampu');
-      showToast('Database berhasil diisi dengan data awal sekolah.', 'success');
-    } catch (e: any) {
-      showToast('Gagal inisialisasi: ' + e.message, 'error');
-    } finally {
-      setBackupLoading(false);
     }
   };
 
@@ -472,21 +459,6 @@ export const SettingsPage: React.FC = () => {
               </button>
             </form>
           </div>
-        </div>
-
-        {/* Demo Data Re-seed Button */}
-        <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="text-slate-500">
-            Perlu sampel data untuk pengujian modul atau presentasi sekolah?
-          </div>
-          <button
-            onClick={handleSeedDemoData}
-            disabled={backupLoading}
-            className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 font-semibold flex items-center justify-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span>Isi Ulang Data Sampel Sekolah</span>
-          </button>
         </div>
       </div>
 

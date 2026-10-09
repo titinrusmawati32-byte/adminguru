@@ -1,19 +1,25 @@
 import {
   AlertCircle,
+  ArrowRight,
   BookOpen,
   Calendar,
+  Check,
   CheckCircle2,
+  CheckSquare,
   Clock,
+  Crown,
   Download,
   Edit,
   Eye,
   FileSpreadsheet,
   GraduationCap,
   KeyRound,
+  Layers,
   Mail,
   Phone,
   Plus,
   RefreshCw,
+  School,
   Search,
   Shield,
   ShieldAlert,
@@ -35,7 +41,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { auditService } from '../services/auditService';
 import { authService } from '../services/authService';
-import { classService } from '../services/classService';
+import { classService, groupClassesBySDGrade } from '../services/classService';
 import { reportService } from '../services/reportService';
 import { scheduleService } from '../services/scheduleService';
 import { subjectService } from '../services/subjectService';
@@ -54,6 +60,12 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Sub-tabs: 'teachers' (Daftar Guru) vs 'matrix' (Matriks Penugasan Rombel SD Kelas 1-6)
+  const [activeSubTab, setActiveSubTab] = useState<'teachers' | 'matrix'>('teachers');
+  const [matrixGradeFilter, setMatrixGradeFilter] = useState<
+    'all' | '1' | '2' | '3' | '4' | '5' | '6' | 'fase-a' | 'fase-b' | 'fase-c'
+  >('all');
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,6 +90,21 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
     homeroomClass: '',
     status: 'active' as 'active' | 'inactive',
   });
+
+  // Quick Rombel Modal for single teacher
+  const [isQuickRombelOpen, setIsQuickRombelOpen] = useState(false);
+  const [quickRombelTeacher, setQuickRombelTeacher] = useState<UserProfile | null>(null);
+  const [quickRombelData, setQuickRombelData] = useState({
+    assignedClasses: [] as string[],
+    isHomeroom: false,
+    homeroomClass: '',
+  });
+
+  // Target Rombel Modal (configure teachers for a specific class)
+  const [isTargetRombelOpen, setIsTargetRombelOpen] = useState(false);
+  const [targetRombelClass, setTargetRombelClass] = useState<SchoolClass | null>(null);
+  const [targetRombelHomeroomUid, setTargetRombelHomeroomUid] = useState<string>('');
+  const [targetRombelTeacherUids, setTargetRombelTeacherUids] = useState<string[]>([]);
 
   // Delete State
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -107,6 +134,11 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
     loadData();
   }, []);
 
+  // Grouped SD Classes (Kelas 1 SD s/d Kelas 6 SD)
+  const groupedSDClasses = useMemo(() => {
+    return groupClassesBySDGrade(classes);
+  }, [classes]);
+
   // Filtered Teachers
   const filteredTeachers = useMemo(() => {
     return teachers.filter((t) => {
@@ -129,6 +161,21 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
       return matchSearch && matchStatus && matchRole;
     });
   }, [teachers, searchTerm, statusFilter, roleFilter]);
+
+  // Filtered Classes for Matrix View
+  const filteredMatrixClasses = useMemo(() => {
+    if (matrixGradeFilter === 'all') return classes;
+    if (matrixGradeFilter === 'fase-a') {
+      return classes.filter((c) => ['1', '2'].includes(c.grade || c.name.replace(/\D/g, '')));
+    }
+    if (matrixGradeFilter === 'fase-b') {
+      return classes.filter((c) => ['3', '4'].includes(c.grade || c.name.replace(/\D/g, '')));
+    }
+    if (matrixGradeFilter === 'fase-c') {
+      return classes.filter((c) => ['5', '6'].includes(c.grade || c.name.replace(/\D/g, '')));
+    }
+    return classes.filter((c) => (c.grade || c.name.replace(/\D/g, '')) === matrixGradeFilter);
+  }, [classes, matrixGradeFilter]);
 
   // Statistics
   const totalGuru = teachers.length;
@@ -179,6 +226,194 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
           : [...prev.assignedClasses, className],
       };
     });
+  };
+
+  const handleSelectAllSDClasses = () => {
+    setFormData((prev) => ({
+      ...prev,
+      assignedClasses: classes.map((c) => c.name),
+    }));
+  };
+
+  const handleSelectFaseA = () => {
+    setFormData((prev) => ({
+      ...prev,
+      assignedClasses: classes
+        .filter((c) => ['1', '2'].includes(c.grade || c.name.replace(/\D/g, '')))
+        .map((c) => c.name),
+    }));
+  };
+
+  const handleSelectFaseB = () => {
+    setFormData((prev) => ({
+      ...prev,
+      assignedClasses: classes
+        .filter((c) => ['3', '4'].includes(c.grade || c.name.replace(/\D/g, '')))
+        .map((c) => c.name),
+    }));
+  };
+
+  const handleSelectFaseC = () => {
+    setFormData((prev) => ({
+      ...prev,
+      assignedClasses: classes
+        .filter((c) => ['5', '6'].includes(c.grade || c.name.replace(/\D/g, '')))
+        .map((c) => c.name),
+    }));
+  };
+
+  const handleToggleGradeGroup = (classNames: string[]) => {
+    setFormData((prev) => {
+      const allSelected = classNames.every((c) => prev.assignedClasses.includes(c));
+      const nextClasses = allSelected
+        ? prev.assignedClasses.filter((c) => !classNames.includes(c))
+        : Array.from(new Set([...prev.assignedClasses, ...classNames]));
+      return { ...prev, assignedClasses: nextClasses };
+    });
+  };
+
+  const handleClearClasses = () => {
+    setFormData((prev) => ({
+      ...prev,
+      assignedClasses: [],
+    }));
+  };
+
+  // Quick Rombel Modal Handlers
+  const handleOpenQuickRombel = (teacher: UserProfile) => {
+    setQuickRombelTeacher(teacher);
+    setQuickRombelData({
+      assignedClasses: teacher.assignedClasses || [],
+      isHomeroom: Boolean(teacher.isHomeroom),
+      homeroomClass: teacher.homeroomClass || classes[0]?.name || '',
+    });
+    setIsQuickRombelOpen(true);
+  };
+
+  const handleToggleQuickRombelClass = (className: string) => {
+    setQuickRombelData((prev) => {
+      const exists = prev.assignedClasses.includes(className);
+      return {
+        ...prev,
+        assignedClasses: exists
+          ? prev.assignedClasses.filter((c) => c !== className)
+          : [...prev.assignedClasses, className],
+      };
+    });
+  };
+
+  const handleToggleQuickRombelGrade = (classNames: string[]) => {
+    setQuickRombelData((prev) => {
+      const allSelected = classNames.every((c) => prev.assignedClasses.includes(c));
+      const nextClasses = allSelected
+        ? prev.assignedClasses.filter((c) => !classNames.includes(c))
+        : Array.from(new Set([...prev.assignedClasses, ...classNames]));
+      return { ...prev, assignedClasses: nextClasses };
+    });
+  };
+
+  const handleSaveQuickRombel = async () => {
+    if (!quickRombelTeacher) return;
+    setSubmitting(true);
+    try {
+      await authService.updateUserProfile(quickRombelTeacher.uid, {
+        assignedClasses: quickRombelData.assignedClasses,
+        isHomeroom: quickRombelData.isHomeroom,
+        homeroomClass: quickRombelData.isHomeroom ? quickRombelData.homeroomClass : '',
+      });
+      await auditService.log(
+        'UPDATE_TEACHER_ROMBEL',
+        'users',
+        quickRombelTeacher.uid,
+        `Memperbarui penugasan rombel SD untuk ${quickRombelTeacher.displayName} (${quickRombelData.assignedClasses.join(', ') || 'Belum ada'})`
+      );
+      showToast(`Penugasan rombel ${quickRombelTeacher.displayName} berhasil disimpan!`, 'success');
+      setIsQuickRombelOpen(false);
+      loadData();
+    } catch (err: any) {
+      showToast('Gagal menyimpan penugasan rombel: ' + err.message, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Target Rombel Modal Handlers (Configuring a specific SD class)
+  const handleOpenTargetRombel = (cls: SchoolClass) => {
+    setTargetRombelClass(cls);
+    const homeroomTeacher = teachers.find(
+      (t) => t.isHomeroom && t.homeroomClass === cls.name
+    );
+    setTargetRombelHomeroomUid(homeroomTeacher ? homeroomTeacher.uid : '');
+
+    const assignedTeachers = teachers
+      .filter((t) => (t.assignedClasses || []).includes(cls.name))
+      .map((t) => t.uid);
+    setTargetRombelTeacherUids(assignedTeachers);
+    setIsTargetRombelOpen(true);
+  };
+
+  const handleSaveTargetRombel = async () => {
+    if (!targetRombelClass) return;
+    setSubmitting(true);
+    const className = targetRombelClass.name;
+
+    try {
+      for (const t of teachers) {
+        let shouldUpdate = false;
+        let newIsHomeroom = t.isHomeroom;
+        let newHomeroomClass = t.homeroomClass || '';
+        let newAssignedClasses = [...(t.assignedClasses || [])];
+
+        const isNowHomeroom = t.uid === targetRombelHomeroomUid;
+        const isPreviouslyHomeroom = t.isHomeroom && t.homeroomClass === className;
+
+        if (isNowHomeroom && (!t.isHomeroom || t.homeroomClass !== className)) {
+          newIsHomeroom = true;
+          newHomeroomClass = className;
+          if (!newAssignedClasses.includes(className)) {
+            newAssignedClasses.push(className);
+          }
+          shouldUpdate = true;
+        } else if (!isNowHomeroom && isPreviouslyHomeroom) {
+          newIsHomeroom = false;
+          newHomeroomClass = '';
+          shouldUpdate = true;
+        }
+
+        const shouldTeach = targetRombelTeacherUids.includes(t.uid);
+        const currentlyTeaches = newAssignedClasses.includes(className);
+
+        if (shouldTeach && !currentlyTeaches) {
+          newAssignedClasses.push(className);
+          shouldUpdate = true;
+        } else if (!shouldTeach && currentlyTeaches && !isNowHomeroom) {
+          newAssignedClasses = newAssignedClasses.filter((c) => c !== className);
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
+          await authService.updateUserProfile(t.uid, {
+            isHomeroom: newIsHomeroom,
+            homeroomClass: newHomeroomClass,
+            assignedClasses: newAssignedClasses,
+          });
+        }
+      }
+
+      await auditService.log(
+        'UPDATE_ROMBEL_ASSIGNMENT',
+        'classes',
+        targetRombelClass.classId,
+        `Memperbarui penugasan guru & wali kelas untuk rombel SD ${className}`
+      );
+      showToast(`Penugasan rombel ${className} berhasil diperbarui!`, 'success');
+      setIsTargetRombelOpen(false);
+      loadData();
+    } catch (err: any) {
+      showToast('Gagal menyimpan penugasan rombel: ' + err.message, 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleToggleSubject = (subjectName: string) => {
@@ -424,218 +659,467 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Cari guru berdasarkan nama, NIP, username, atau email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none"
+      {/* Sub-tab Switcher: Daftar Akun Guru vs Matriks Penugasan Rombel SD Kelas 1-6 */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setActiveSubTab('teachers')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeSubTab === 'teachers'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs border border-slate-200/60 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
           >
-            <option value="all">Semua Status</option>
-            <option value="active">Status: Aktif</option>
-            <option value="inactive">Status: Nonaktif</option>
-          </select>
-
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value as any)}
-            className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none"
-          >
-            <option value="all">Semua Jabatan</option>
-            <option value="homeroom">Wali Kelas</option>
-            <option value="subject">Guru Mata Pelajaran</option>
-          </select>
+            <Users className="w-3.5 h-3.5 text-blue-500" />
+            <span>Daftar Guru & Akun</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+              {teachers.length}
+            </span>
+          </button>
 
           <button
-            onClick={loadData}
-            title="Muat Ulang"
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            onClick={() => setActiveSubTab('matrix')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeSubTab === 'matrix'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs border border-slate-200/60 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <GraduationCap className="w-3.5 h-3.5 text-amber-500" />
+            <span>Matriks Penugasan Rombel SD (Kelas 1 - 6)</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+              {classes.length} Rombel
+            </span>
           </button>
+        </div>
+
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 px-3 py-1 font-medium">
+          {activeSubTab === 'matrix'
+            ? 'Penugasan Rombel SD: Kelas 1A-1B s/d Kelas 6A-6B'
+            : 'Kelola akun login guru, NIP, serta penugasan individu'}
         </div>
       </div>
 
-      {/* Teacher List */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        {loading ? (
-          <div className="py-16 text-center text-slate-400 space-y-3">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-500" />
-            <p className="text-xs">Memuat daftar akun guru dan penugasan...</p>
+      {/* VIEW 1: MATRIKS PENUGASAN ROMBEL SD (KELAS 1 - 6) */}
+      {activeSubTab === 'matrix' && (
+        <div className="space-y-4">
+          {/* Filter Pills for SD Grades */}
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-semibold mr-1">Filter Tingkat SD:</span>
+              <button
+                onClick={() => setMatrixGradeFilter('all')}
+                className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
+                  matrixGradeFilter === 'all'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Semua Rombel (1-6)
+              </button>
+              <button
+                onClick={() => setMatrixGradeFilter('fase-a')}
+                className={`px-3 py-1.5 rounded-xl font-medium cursor-pointer transition-all ${
+                  matrixGradeFilter === 'fase-a'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Fase A (Kls 1 & 2)
+              </button>
+              <button
+                onClick={() => setMatrixGradeFilter('fase-b')}
+                className={`px-3 py-1.5 rounded-xl font-medium cursor-pointer transition-all ${
+                  matrixGradeFilter === 'fase-b'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Fase B (Kls 3 & 4)
+              </button>
+              <button
+                onClick={() => setMatrixGradeFilter('fase-c')}
+                className={`px-3 py-1.5 rounded-xl font-medium cursor-pointer transition-all ${
+                  matrixGradeFilter === 'fase-c'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Fase C (Kls 5 & 6)
+              </button>
+
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
+
+              {['1', '2', '3', '4', '5', '6'].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setMatrixGradeFilter(g as any)}
+                  className={`px-2.5 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
+                    matrixGradeFilter === g
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                  }`}
+                >
+                  Kls {g}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={loadData}
+              title="Perbarui Data"
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer ml-auto"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
-        ) : filteredTeachers.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="Tidak Ada Guru Ditemukan"
-            description="Tidak ada data guru yang cocok dengan filter pencarian atau belum ada akun guru yang didaftarkan."
-            actionLabel="Tambah Guru Baru"
-            onAction={handleOpenAdd}
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase tracking-wider">
-                  <th className="pb-3.5 font-semibold">Identitas Guru</th>
-                  <th className="pb-3.5 font-semibold">Penugasan Wali Kelas</th>
-                  <th className="pb-3.5 font-semibold">Kelas Diampu</th>
-                  <th className="pb-3.5 font-semibold">Mata Pelajaran</th>
-                  <th className="pb-3.5 font-semibold text-center">Status</th>
-                  <th className="pb-3.5 font-semibold text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredTeachers.map((teacher) => {
-                  const teacherSchedules = schedules.filter(
-                    (s) => s.teacherId === teacher.teacherId || s.teacherId === teacher.uid
-                  );
 
-                  return (
-                    <tr
-                      key={teacher.uid}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      {/* Identity */}
-                      <td className="py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center shrink-0 shadow-xs">
-                            {teacher.displayName.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                              <span>{teacher.displayName}</span>
-                              {teacher.isHomeroom && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-extrabold border border-amber-300 dark:border-amber-800">
-                                  Wali Kelas
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
-                              <span>NIP: {teacher.nip || '-'}</span>
-                              <span>•</span>
-                              <span className="font-mono text-blue-600 dark:text-blue-400">
-                                @{teacher.username}
-                              </span>
-                            </div>
-                            {teacher.email && (
-                              <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                                <Mail className="w-3 h-3" />
-                                <span>{teacher.email}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
+          {/* Rombel Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMatrixClasses.map((cls) => {
+              const gradeNum = cls.grade || cls.name.replace(/\D/g, '') || '1';
+              const fase =
+                gradeNum === '1' || gradeNum === '2'
+                  ? 'Fase A'
+                  : gradeNum === '3' || gradeNum === '4'
+                  ? 'Fase B'
+                  : 'Fase C';
 
-                      {/* Homeroom */}
-                      <td className="py-4">
-                        {teacher.isHomeroom && teacher.homeroomClass ? (
-                          <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold text-[11px] border border-amber-200 dark:border-amber-800">
-                            {teacher.homeroomClass}
+              const homeroomTeacher = teachers.find(
+                (t) => t.isHomeroom && t.homeroomClass === cls.name
+              );
+              const assignedTeachers = teachers.filter((t) =>
+                (t.assignedClasses || []).includes(cls.name)
+              );
+
+              return (
+                <div
+                  key={cls.classId}
+                  className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs flex flex-col justify-between gap-4 hover:border-blue-400 dark:hover:border-blue-600 transition-all"
+                >
+                  <div className="space-y-3">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                            {cls.name}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            {fase}
                           </span>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">Bukan Wali Kelas</span>
-                        )}
-                      </td>
-
-                      {/* Assigned Classes */}
-                      <td className="py-4">
-                        {teacher.assignedClasses && teacher.assignedClasses.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 max-w-xs">
-                            {teacher.assignedClasses.map((c) => (
-                              <span
-                                key={c}
-                                className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[10px] font-semibold border border-blue-200/60 dark:border-blue-800/60"
-                              >
-                                {c}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">Belum ditugaskan</span>
-                        )}
-                      </td>
-
-                      {/* Assigned Subjects */}
-                      <td className="py-4">
-                        {teacher.assignedSubjects && teacher.assignedSubjects.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 max-w-xs">
-                            {teacher.assignedSubjects.map((s) => (
-                              <span
-                                key={s}
-                                className="px-2 py-0.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[10px] font-semibold border border-purple-200/60 dark:border-purple-800/60"
-                              >
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">Belum ada mapel</span>
-                        )}
-                      </td>
-
-                      {/* Status Toggle */}
-                      <td className="py-4 text-center">
-                        <button
-                          onClick={() => handleToggleStatus(teacher)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-all ${
-                            teacher.status === 'active'
-                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700'
-                          }`}
-                          title="Klik untuk mengubah status akun"
-                        >
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              teacher.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'
-                            }`}
-                          />
-                          <span>{teacher.status === 'active' ? 'Aktif' : 'Nonaktif'}</span>
-                        </button>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleOpenEdit(teacher)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
-                            title="Edit Guru & Penugasan"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setTeacherToDelete(teacher);
-                              setIsDeleteOpen(true);
-                            }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                            title="Hapus Akun Guru"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Tingkat Kelas {gradeNum} SD • TA {cls.academicYear}
+                        </p>
+                      </div>
+
+                      <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 border border-amber-200 dark:border-amber-800">
+                        SD
+                      </div>
+                    </div>
+
+                    {/* Wali Kelas Box */}
+                    <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/80">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-amber-900 dark:text-amber-200 mb-1">
+                        <span className="flex items-center gap-1.5">
+                          <Crown className="w-3.5 h-3.5 text-amber-600" />
+                          Wali / Guru Kelas:
+                        </span>
+                      </div>
+                      {homeroomTeacher ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-6 h-6 rounded-lg bg-amber-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                            {homeroomTeacher.displayName.charAt(0)}
+                          </div>
+                          <div className="truncate">
+                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                              {homeroomTeacher.displayName}
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                              NIP: {homeroomTeacher.nip || '-'}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-amber-700 dark:text-amber-400 italic">
+                          Belum ada Wali Kelas yang ditugaskan
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Guru Pengampu List */}
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                        <span>Guru Mengajar di Rombel Ini:</span>
+                        <span className="font-bold text-blue-600 dark:text-blue-400">
+                          {assignedTeachers.length} Guru
+                        </span>
+                      </div>
+
+                      {assignedTeachers.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 italic">
+                          Belum ada guru mata pelajaran / pengampu yang ditugaskan ke rombel ini.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                          {assignedTeachers.map((t) => (
+                            <span
+                              key={t.uid}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
+                              title={t.displayName}
+                            >
+                              <span className="truncate max-w-[120px]">{t.displayName}</span>
+                              {t.uid === homeroomTeacher?.uid && (
+                                <Crown className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end">
+                    <button
+                      onClick={() => handleOpenTargetRombel(cls)}
+                      className="px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-blue-200 dark:border-blue-800"
+                    >
+                      <UserCog className="w-3.5 h-3.5" />
+                      <span>Atur Guru & Wali Rombel</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* VIEW 2: DAFTAR AKUN & STATUS GURU */}
+      {activeSubTab === 'teachers' && (
+        <>
+          {/* Filter and Search Bar */}
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari guru berdasarkan nama, NIP, username, atau email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none"
+              >
+                <option value="all">Semua Status</option>
+                <option value="active">Status: Aktif</option>
+                <option value="inactive">Status: Nonaktif</option>
+              </select>
+
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none"
+              >
+                <option value="all">Semua Jabatan</option>
+                <option value="homeroom">Wali Kelas</option>
+                <option value="subject">Guru Mata Pelajaran</option>
+              </select>
+
+              <button
+                onClick={loadData}
+                title="Muat Ulang"
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Teacher List */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            {loading ? (
+              <div className="py-16 text-center text-slate-400 space-y-3">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-500" />
+                <p className="text-xs">Memuat daftar akun guru dan penugasan...</p>
+              </div>
+            ) : filteredTeachers.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="Tidak Ada Guru Ditemukan"
+                description="Tidak ada data guru yang cocok dengan filter pencarian atau belum ada akun guru yang didaftarkan."
+                actionLabel="Tambah Guru Baru"
+                onAction={handleOpenAdd}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase tracking-wider">
+                      <th className="pb-3.5 font-semibold">Identitas Guru</th>
+                      <th className="pb-3.5 font-semibold">Penugasan Wali Kelas</th>
+                      <th className="pb-3.5 font-semibold">Penugasan Rombel SD</th>
+                      <th className="pb-3.5 font-semibold">Mata Pelajaran</th>
+                      <th className="pb-3.5 font-semibold text-center">Status</th>
+                      <th className="pb-3.5 font-semibold text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredTeachers.map((teacher) => {
+                      return (
+                        <tr
+                          key={teacher.uid}
+                          className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                        >
+                          {/* Identity */}
+                          <td className="py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center shrink-0 shadow-xs">
+                                {teacher.displayName.charAt(0)}
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                  <span>{teacher.displayName}</span>
+                                  {teacher.isHomeroom && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-extrabold border border-amber-300 dark:border-amber-800">
+                                      Wali Kelas
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                                  <span>NIP: {teacher.nip || '-'}</span>
+                                  <span>•</span>
+                                  <span className="font-mono text-blue-600 dark:text-blue-400">
+                                    @{teacher.username}
+                                  </span>
+                                </div>
+                                {teacher.email && (
+                                  <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                    <Mail className="w-3 h-3" />
+                                    <span>{teacher.email}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Homeroom */}
+                          <td className="py-4">
+                            {teacher.isHomeroom && teacher.homeroomClass ? (
+                              <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold text-[11px] border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1.5">
+                                <Crown className="w-3 h-3 text-amber-600" />
+                                {teacher.homeroomClass}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">Bukan Wali Kelas</span>
+                            )}
+                          </td>
+
+                          {/* Assigned Classes */}
+                          <td className="py-4">
+                            {teacher.assignedClasses && teacher.assignedClasses.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {teacher.assignedClasses.map((c) => (
+                                  <span
+                                    key={c}
+                                    className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[10px] font-semibold border border-blue-200/60 dark:border-blue-800/60"
+                                  >
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">Belum ditugaskan</span>
+                            )}
+                          </td>
+
+                          {/* Assigned Subjects */}
+                          <td className="py-4">
+                            {teacher.assignedSubjects && teacher.assignedSubjects.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {teacher.assignedSubjects.map((s) => (
+                                  <span
+                                    key={s}
+                                    className="px-2 py-0.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[10px] font-semibold border border-purple-200/60 dark:border-purple-800/60"
+                                  >
+                                    {s}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">Belum ada mapel</span>
+                            )}
+                          </td>
+
+                          {/* Status Toggle */}
+                          <td className="py-4 text-center">
+                            <button
+                              onClick={() => handleToggleStatus(teacher)}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-all ${
+                                teacher.status === 'active'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700'
+                              }`}
+                              title="Klik untuk mengubah status akun"
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  teacher.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'
+                                }`}
+                              />
+                              <span>{teacher.status === 'active' ? 'Aktif' : 'Nonaktif'}</span>
+                            </button>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Quick Rombel SD button */}
+                              <button
+                                onClick={() => handleOpenQuickRombel(teacher)}
+                                className="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 transition-colors cursor-pointer flex items-center gap-1 font-bold text-[11px] border border-amber-200/80 dark:border-amber-800/80"
+                                title="Tugaskan Rombel SD Kelas 1 s/d 6"
+                              >
+                                <GraduationCap className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Rombel SD</span>
+                              </button>
+                              <button
+                                onClick={() => handleOpenEdit(teacher)}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                                title="Edit Akun Guru & Penugasan"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setTeacherToDelete(teacher);
+                                  setIsDeleteOpen(true);
+                                }}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                title="Hapus Akun Guru"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Add / Edit Teacher Modal */}
       <Modal
@@ -746,44 +1230,126 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
                   onChange={(e) => setFormData({ ...formData, homeroomClass: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
                 >
-                  {classes.map((cls) => (
-                    <option key={cls.classId} value={cls.name}>
-                      {cls.name} ({cls.academicYear})
-                    </option>
+                  {groupedSDClasses.map((group) => (
+                    <optgroup key={group.grade} label={`${group.label} (${group.fase})`}>
+                      {group.classes.map((cls) => (
+                        <option key={cls.classId} value={cls.name}>
+                          {cls.name} ({cls.academicYear})
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
             )}
           </div>
 
-          {/* Penugasan Rombel Kelas */}
-          <div>
-            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Penugasan Rombel Kelas (Mengajar di kelas mana saja):
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 max-h-36 overflow-y-auto">
-              {classes.map((cls) => {
-                const checked = formData.assignedClasses.includes(cls.name);
+          {/* Penugasan Rombel Kelas SD (Kelas 1 - Kelas 6) */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="block font-semibold text-slate-700 dark:text-slate-300">
+                Penugasan Rombel SD (Mengajar di kelas mana saja):
+              </label>
+              <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleSelectAllSDClasses}
+                  className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-bold cursor-pointer"
+                >
+                  Semua (1-6)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectFaseA}
+                  className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-medium cursor-pointer"
+                >
+                  Fase A (1-2)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectFaseB}
+                  className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-medium cursor-pointer"
+                >
+                  Fase B (3-4)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectFaseC}
+                  className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-medium cursor-pointer"
+                >
+                  Fase C (5-6)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearClasses}
+                  className="px-2 py-0.5 rounded-lg text-slate-500 hover:text-rose-600 font-medium cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {/* Grouped by SD Grade 1 to 6 */}
+            <div className="space-y-2 max-h-56 overflow-y-auto p-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+              {groupedSDClasses.map((group) => {
+                const groupClassNames = group.classes.map((c) => c.name);
+                const allChecked =
+                  groupClassNames.length > 0 &&
+                  groupClassNames.every((c) => formData.assignedClasses.includes(c));
+
                 return (
-                  <label
-                    key={cls.classId}
-                    className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-colors text-[11px] ${
-                      checked
-                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
+                  <div
+                    key={group.grade}
+                    className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700"
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => handleToggleClass(cls.name)}
-                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="truncate">{cls.name}</span>
-                  </label>
+                    <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 dark:border-slate-700">
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        {group.label}
+                        <span className="text-[10px] font-normal text-slate-400">({group.fase})</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleGradeGroup(groupClassNames)}
+                        className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      >
+                        {allChecked ? 'Batal Semua' : 'Pilih Semua'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {group.classes.map((cls) => {
+                        const checked = formData.assignedClasses.includes(cls.name);
+                        return (
+                          <label
+                            key={cls.classId}
+                            className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors text-[11px] ${
+                              checked
+                                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800'
+                                : 'bg-slate-50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => handleToggleClass(cls.name)}
+                              className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <span className="truncate">{cls.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
+
+            {formData.assignedClasses.length > 0 && (
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                Dipilih: <span className="font-semibold text-blue-600 dark:text-blue-400">{formData.assignedClasses.length} rombel</span> ({formData.assignedClasses.join(', ')})
+              </p>
+            )}
           </div>
 
           {/* Penugasan Mata Pelajaran */}
@@ -850,6 +1416,381 @@ export const TeachersPage: React.FC<TeachersPageProps> = ({ onSelectTab }) => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* QUICK ROMBEL SD ASSIGNMENT MODAL (PER GURU) */}
+      <Modal
+        isOpen={isQuickRombelOpen}
+        onClose={() => setIsQuickRombelOpen(false)}
+        title={`Penugasan Rombel SD (Kelas 1 - 6) • ${quickRombelTeacher?.displayName || ''}`}
+        maxWidth="lg"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 flex items-center gap-3">
+            <GraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+            <div>
+              <p className="font-bold">
+                Tugaskan Rombongan Belajar Sekolah Dasar (SD)
+              </p>
+              <p className="text-[11px] text-blue-700 dark:text-blue-300">
+                Pilih rombel dari <strong>Kelas 1 sampai Kelas 6</strong> yang diampu oleh {quickRombelTeacher?.displayName}.
+              </p>
+            </div>
+          </div>
+
+          {/* Wali Kelas Toggle */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer font-bold text-amber-900 dark:text-amber-200">
+              <input
+                type="checkbox"
+                checked={quickRombelData.isHomeroom}
+                onChange={(e) => setQuickRombelData({ ...quickRombelData, isHomeroom: e.target.checked })}
+                className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+              />
+              <span>Tugaskan sebagai Wali Kelas (Guru Kelas)</span>
+            </label>
+
+            {quickRombelData.isHomeroom && (
+              <div className="pt-1">
+                <label className="block text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                  Pilih Rombel Kelas Binaan:
+                </label>
+                <select
+                  value={quickRombelData.homeroomClass}
+                  onChange={(e) => {
+                    const chosen = e.target.value;
+                    setQuickRombelData((prev) => ({
+                      ...prev,
+                      homeroomClass: chosen,
+                      assignedClasses: prev.assignedClasses.includes(chosen)
+                        ? prev.assignedClasses
+                        : [...prev.assignedClasses, chosen],
+                    }));
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                >
+                  {groupedSDClasses.map((group) => (
+                    <optgroup key={group.grade} label={`${group.label} (${group.fase})`}>
+                      {group.classes.map((cls) => (
+                        <option key={cls.classId} value={cls.name}>
+                          {cls.name} ({cls.academicYear})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Preset Buttons */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">
+              Pilih Rombel yang Diampu:
+            </span>
+            <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
+              <button
+                type="button"
+                onClick={() =>
+                  setQuickRombelData((prev) => ({
+                    ...prev,
+                    assignedClasses: classes.map((c) => c.name),
+                  }))
+                }
+                className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-bold cursor-pointer"
+              >
+                Semua (1-6)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuickRombelData((prev) => ({
+                    ...prev,
+                    assignedClasses: classes
+                      .filter((c) => ['1', '2'].includes(c.grade || c.name.replace(/\D/g, '')))
+                      .map((c) => c.name),
+                  }))
+                }
+                className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-medium cursor-pointer"
+              >
+                Fase A (1-2)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuickRombelData((prev) => ({
+                    ...prev,
+                    assignedClasses: classes
+                      .filter((c) => ['3', '4'].includes(c.grade || c.name.replace(/\D/g, '')))
+                      .map((c) => c.name),
+                  }))
+                }
+                className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-medium cursor-pointer"
+              >
+                Fase B (3-4)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuickRombelData((prev) => ({
+                    ...prev,
+                    assignedClasses: classes
+                      .filter((c) => ['5', '6'].includes(c.grade || c.name.replace(/\D/g, '')))
+                      .map((c) => c.name),
+                  }))
+                }
+                className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-medium cursor-pointer"
+              >
+                Fase C (5-6)
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuickRombelData((prev) => ({
+                    ...prev,
+                    assignedClasses: [],
+                  }))
+                }
+                className="px-2 py-0.5 rounded-lg text-slate-500 hover:text-rose-600 font-medium cursor-pointer"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Grouped by SD Grade 1 to 6 */}
+          <div className="space-y-2 max-h-64 overflow-y-auto p-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+            {groupedSDClasses.map((group) => {
+              const groupClassNames = group.classes.map((c) => c.name);
+              const allChecked =
+                groupClassNames.length > 0 &&
+                groupClassNames.every((c) => quickRombelData.assignedClasses.includes(c));
+
+              return (
+                <div
+                  key={group.grade}
+                  className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700"
+                >
+                  <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 dark:border-slate-700">
+                    <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      {group.label}
+                      <span className="text-[10px] font-normal text-slate-400">({group.fase})</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleQuickRombelGrade(groupClassNames)}
+                      className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      {allChecked ? 'Batal Semua' : 'Pilih Semua'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {group.classes.map((cls) => {
+                      const checked = quickRombelData.assignedClasses.includes(cls.name);
+                      return (
+                        <label
+                          key={cls.classId}
+                          className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors text-[11px] ${
+                            checked
+                              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800'
+                              : 'bg-slate-50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleToggleQuickRombelClass(cls.name)}
+                            className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <span className="truncate">{cls.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {quickRombelData.assignedClasses.length > 0 && (
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              Dipilih: <span className="font-semibold text-blue-600 dark:text-blue-400">{quickRombelData.assignedClasses.length} rombel</span> ({quickRombelData.assignedClasses.join(', ')})
+            </p>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsQuickRombelOpen(false)}
+              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveQuickRombel}
+              disabled={submitting}
+              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {submitting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+              <span>Simpan Penugasan Rombel</span>
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* TARGET ROMBEL CONFIGURATION MODAL (PER KELAS SD) */}
+      <Modal
+        isOpen={isTargetRombelOpen}
+        onClose={() => setIsTargetRombelOpen(false)}
+        title={`Atur Penugasan Guru untuk ${targetRombelClass?.name || ''}`}
+        maxWidth="lg"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-center gap-3">
+            <School className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold">
+                Konfigurasi Rombongan Belajar: {targetRombelClass?.name}
+              </p>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                Tentukan siapa Guru / Wali Kelas serta centang guru-guru yang ditugaskan mengajar di rombel ini.
+              </p>
+            </div>
+          </div>
+
+          {/* Pilih Wali Kelas */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2">
+            <label className="block font-bold text-slate-800 dark:text-slate-200">
+              Wali Kelas / Guru Kelas untuk {targetRombelClass?.name}:
+            </label>
+            <select
+              value={targetRombelHomeroomUid}
+              onChange={(e) => {
+                const uid = e.target.value;
+                setTargetRombelHomeroomUid(uid);
+                if (uid && !targetRombelTeacherUids.includes(uid)) {
+                  setTargetRombelTeacherUids([...targetRombelTeacherUids, uid]);
+                }
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+            >
+              <option value="">-- Belum Ditentukan / Tidak Ada --</option>
+              {teachers.map((t) => (
+                <option key={t.uid} value={t.uid}>
+                  {t.displayName} (NIP: {t.nip || '-'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Centang Guru-guru yang Mengajar di Rombel ini */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block font-bold text-slate-800 dark:text-slate-200">
+                Daftar Guru Pengampu di Rombel {targetRombelClass?.name}:
+              </label>
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setTargetRombelTeacherUids(teachers.map((t) => t.uid))}
+                  className="px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-bold cursor-pointer"
+                >
+                  Pilih Semua Guru
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetRombelTeacherUids([])}
+                  className="px-2 py-0.5 rounded-lg text-slate-500 hover:text-rose-600 font-medium cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 max-h-56 overflow-y-auto p-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+              {teachers.map((t) => {
+                const isChecked = targetRombelTeacherUids.includes(t.uid);
+                const isHomeroomThisClass = t.uid === targetRombelHomeroomUid;
+
+                return (
+                  <label
+                    key={t.uid}
+                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors text-xs ${
+                      isChecked
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200/60 dark:border-slate-700/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setTargetRombelTeacherUids(
+                              targetRombelTeacherUids.filter((uid) => uid !== t.uid)
+                            );
+                            if (isHomeroomThisClass) {
+                              setTargetRombelHomeroomUid('');
+                            }
+                          } else {
+                            setTargetRombelTeacherUids([...targetRombelTeacherUids, t.uid]);
+                          }
+                        }}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span>{t.displayName}</span>
+                          {isHomeroomThisClass && (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-extrabold border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                              <Crown className="w-2.5 h-2.5" />
+                              Wali Kelas
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          NIP: {t.nip || '-'} • Mapel: {(t.assignedSubjects || []).join(', ') || '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      @{t.username}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              Total guru ditugaskan ke {targetRombelClass?.name}:{' '}
+              <strong className="text-blue-600 dark:text-blue-400">{targetRombelTeacherUids.length} Guru</strong>
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsTargetRombelOpen(false)}
+              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveTargetRombel}
+              disabled={submitting}
+              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {submitting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+              <span>Simpan Penugasan Rombel</span>
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Confirm Delete Dialog */}

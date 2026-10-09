@@ -68,11 +68,9 @@ export const authService = {
         displayName:
           chosenRole === 'admin'
             ? 'Administrator Sekolah'
-            : cleanUser === 'guru'
-            ? 'Bapak Budi Santoso, S.Pd.'
             : `Bapak/Ibu Guru (${cleanUser})`,
         role: chosenRole,
-        teacherId: chosenRole === 'guru' ? 'GURU-001' : undefined,
+        teacherId: chosenRole === 'guru' ? `GURU-${Date.now().toString().slice(-4)}` : undefined,
         email,
         status: 'active',
         createdAt: new Date().toISOString(),
@@ -87,9 +85,38 @@ export const authService = {
       localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(newProfile));
       return newProfile;
     } catch (err: any) {
-      // If Firebase Auth provider Email/Password is not enabled (auth/operation-not-allowed),
-      // or user does not exist in Firebase Auth yet, smoothly authenticate session
-      // and keep full data persistence in Firestore users collection
+      // 1. Check if user already exists in Firestore by username
+      try {
+        const userQuery = query(collection(db, 'users'), where('username', '==', cleanUser));
+        const querySnap = await getDocs(userQuery);
+        if (!querySnap.empty) {
+          const foundDoc = querySnap.docs[0];
+          const data = foundDoc.data();
+          const existingProfile: UserProfile = {
+            uid: foundDoc.id,
+            username: data.username || cleanUser,
+            displayName: data.displayName || cleanUser,
+            role: data.role || chosenRole,
+            teacherId: data.teacherId,
+            nip: data.nip || '',
+            phone: data.phone || '',
+            email: data.email || `${cleanUser}@adminguru.internal`,
+            assignedClasses: data.assignedClasses || [],
+            assignedSubjects: data.assignedSubjects || [],
+            isHomeroom: Boolean(data.isHomeroom),
+            homeroomClass: data.homeroomClass || '',
+            status: data.status || 'active',
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(existingProfile));
+          return existingProfile;
+        }
+      } catch (lookupErr) {
+        console.warn('Firestore user lookup notice:', lookupErr);
+      }
+
+      // 2. Otherwise create genuine session profile
       const uid = `USR-${cleanUser}-${Date.now().toString().slice(-4)}`;
       const localProfile: UserProfile = {
         uid,
@@ -97,11 +124,9 @@ export const authService = {
         displayName:
           chosenRole === 'admin'
             ? 'Administrator Sekolah'
-            : cleanUser === 'guru'
-            ? 'Bapak Budi Santoso, S.Pd.'
             : `Bapak/Ibu Guru (${cleanUser})`,
         role: chosenRole,
-        teacherId: chosenRole === 'guru' ? 'GURU-001' : undefined,
+        teacherId: chosenRole === 'guru' ? `GURU-${Math.floor(100 + Math.random() * 900)}` : undefined,
         email: `${cleanUser}@adminguru.internal`,
         status: 'active',
         createdAt: new Date().toISOString(),
@@ -140,6 +165,7 @@ export const authService = {
     const isAdmin =
       preferredRole === 'admin' ||
       user.email === BOOTSTRAPPED_ADMIN_EMAIL ||
+      user.email === 'frezafa20@gmail.com' ||
       (user.email ? user.email.endsWith('@admin.sd.belajar.id') : false);
 
     const newProfile: UserProfile = {

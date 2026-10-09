@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
     --navy-primary: #102A50;
@@ -8,12 +10,12 @@
     --gold-accent: #D9A62E;
     --gold-highlight: #F2C75C;
     --gold-muted: #B8851B;
-    --bg-light: #F5F3ED;
+    --bg-light: #FBF9F5;
     --surface-light: #FFFFFF;
-    --surface-secondary: #ECE9E1;
+    --surface-secondary: #F5EFE4;
     --text-primary: #172A45;
-    --text-secondary: #66758A;
-    --border-light: #E0E5EC;
+    --text-secondary: #5A6A80;
+    --border-light: #EBE3D3;
   }
 
   .dark {
@@ -38,6 +40,7 @@
     letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 

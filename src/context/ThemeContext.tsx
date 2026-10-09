@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   mode: ThemeMode;
@@ -13,10 +13,23 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mode, setModeState] = useState<ThemeMode>(() => {
-    return (localStorage.getItem('admin_guru_theme') as ThemeMode) || 'system';
+    const saved = localStorage.getItem('admin_guru_theme') as ThemeMode | null;
+    if (saved === 'light' || saved === 'dark') return saved;
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
   });
 
-  const [isDark, setIsDark] = useState<boolean>(false);
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    const saved = localStorage.getItem('admin_guru_theme');
+    if (saved === 'dark') return true;
+    if (saved === 'light') return false;
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return true;
+    }
+    return false;
+  });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -35,8 +48,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsDark(activeDark);
       if (activeDark) {
         root.classList.add('dark');
+        root.classList.remove('light');
+        root.style.colorScheme = 'dark';
+        root.setAttribute('data-theme', 'dark');
       } else {
         root.classList.remove('dark');
+        root.classList.add('light');
+        root.style.colorScheme = 'light';
+        root.setAttribute('data-theme', 'light');
       }
     };
 
@@ -53,6 +72,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setMode = (newMode: ThemeMode) => {
     setModeState(newMode);
     localStorage.setItem('admin_guru_theme', newMode);
+    const root = document.documentElement;
+    const isDarkTarget =
+      newMode === 'dark' ||
+      (newMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    setIsDark(isDarkTarget);
+    if (isDarkTarget) {
+      root.classList.add('dark');
+      root.classList.remove('light');
+      root.style.colorScheme = 'dark';
+      root.setAttribute('data-theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      root.classList.add('light');
+      root.style.colorScheme = 'light';
+      root.setAttribute('data-theme', 'light');
+    }
   };
 
   const toggleTheme = () => {

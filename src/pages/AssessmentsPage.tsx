@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { assessmentService } from '../services/assessmentService';
 import { auditService } from '../services/auditService';
-import { classService } from '../services/classService';
+import { classService, groupClassesBySDGrade } from '../services/classService';
 import { studentService } from '../services/studentService';
 import { subjectService } from '../services/subjectService';
 import {
@@ -43,6 +43,10 @@ export const AssessmentsPage: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+
+  const groupedSDClasses = useMemo(() => {
+    return groupClassesBySDGrade(classes);
+  }, [classes]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -283,17 +287,21 @@ export const AssessmentsPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div>
             <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Rombel / Kelas
+              Rombel / Kelas (SD Kelas 1 - 6)
             </label>
             <select
               value={selectedClassId}
               onChange={(e) => setSelectedClassId(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
             >
-              {classes.map((c) => (
-                <option key={c.classId} value={c.classId}>
-                  {c.name}
-                </option>
+              {groupedSDClasses.map((group) => (
+                <optgroup key={group.grade} label={`${group.label} (${group.fase})`}>
+                  {group.classes.map((c) => (
+                    <option key={c.classId} value={c.classId}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>

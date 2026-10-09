@@ -21,7 +21,7 @@ import { useNotification } from '../context/NotificationContext';
 import { agendaService } from '../services/agendaService';
 import { assessmentService } from '../services/assessmentService';
 import { attendanceService } from '../services/attendanceService';
-import { classService } from '../services/classService';
+import { classService, groupClassesBySDGrade } from '../services/classService';
 import { guidanceService } from '../services/guidanceService';
 import { reportService } from '../services/reportService';
 import { studentService } from '../services/studentService';
@@ -58,6 +58,10 @@ export const ReportsPage: React.FC = () => {
   const [agendas, setAgendas] = useState<TeachingAgenda[]>([]);
   const [guidanceList, setGuidanceList] = useState<Guidance[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const groupedSDClasses = useMemo(() => {
+    return groupClassesBySDGrade(classes);
+  }, [classes]);
 
   // Filters
   const [filterClass, setFilterClass] = useState<string>('all');
@@ -307,11 +311,15 @@ export const ReportsPage: React.FC = () => {
             onChange={(e) => setFilterClass(e.target.value)}
             className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200"
           >
-            <option value="all">Semua Rombel</option>
-            {classes.map((c) => (
-              <option key={c.classId} value={c.classId}>
-                {c.name}
-              </option>
+            <option value="all">Semua Rombel (Kelas 1 - 6 SD)</option>
+            {groupedSDClasses.map((group) => (
+              <optgroup key={group.grade} label={`${group.label} (${group.fase})`}>
+                {group.classes.map((c) => (
+                  <option key={c.classId} value={c.classId}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
 

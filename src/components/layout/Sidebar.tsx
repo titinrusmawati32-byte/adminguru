@@ -193,13 +193,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     title={collapsed ? item.label : undefined}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group relative ${
                       isActive
-                        ? 'bg-[#102A50] dark:bg-[#172D4B] text-white shadow-sm border border-[#D9A62E]/30 font-bold'
-                        : 'text-[#172A45] dark:text-[#B4C1D4] hover:bg-[#ECE9E1]/60 dark:hover:bg-[#10223D] hover:text-[#102A50] dark:hover:text-[#F5F7FC]'
+                        ? 'bg-white text-[#B8851B] shadow-sm border border-[#D9A62E] font-bold dark:bg-[#102A50] dark:text-[#FFD675] dark:border-[#D9A62E]/50'
+                        : 'text-[#172A45] dark:text-[#B4C1D4] hover:bg-amber-50/70 dark:hover:bg-[#10223D] hover:text-[#B8851B] dark:hover:text-[#FFD675]'
                     } ${collapsed && !isOpenMobile ? 'justify-center' : ''}`}
                   >
                     <Icon
                       className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-105 ${
-                        isActive ? 'text-[#D9A62E] dark:text-[#FFD675]' : 'text-[#66758A] dark:text-[#B4C1D4]'
+                        isActive
+                          ? 'text-[#D9A62E] dark:text-[#FFD675]'
+                          : 'text-[#66758A] dark:text-[#B4C1D4] group-hover:text-[#D9A62E] dark:group-hover:text-[#FFD675]'
                       }`}
                     />
                     {(!collapsed || isOpenMobile) && (
@@ -216,12 +218,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom Section: Theme, Settings, User Profile & Logout */}
-        <div className="p-3 border-t border-[#E0E5EC] dark:border-[#263B58] space-y-1 shrink-0 bg-[#F5F3ED]/40 dark:bg-[#071225]">
+        <div className="p-3 border-t border-[#E0E5EC] dark:border-[#263B58] space-y-1.5 shrink-0 bg-[#FAF9F5] dark:bg-[#071225] transition-colors">
           {/* Menu Profil Akun */}
           <button
             onClick={() => setIsProfileModalOpen(true)}
             title="Profil Pengguna"
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-[#172A45] dark:text-[#B4C1D4] hover:bg-[#ECE9E1]/60 dark:hover:bg-[#10223D] transition-colors ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-[#172A45] dark:text-[#B4C1D4] hover:bg-amber-50/70 dark:hover:bg-[#10223D] transition-colors cursor-pointer ${
               collapsed && !isOpenMobile ? 'justify-center' : ''
             }`}
           >
@@ -233,10 +235,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => handleNavClick('settings')}
             title="Pengaturan & Backup"
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
               activeTab === 'settings'
-                ? 'bg-[#102A50] dark:bg-[#172D4B] text-white font-bold border border-[#D9A62E]/30'
-                : 'text-[#172A45] dark:text-[#B4C1D4] hover:bg-[#ECE9E1]/60 dark:hover:bg-[#10223D]'
+                ? 'bg-white text-[#B8851B] border border-[#D9A62E] font-bold shadow-sm dark:bg-[#102A50] dark:text-[#FFD675] dark:border-[#D9A62E]/50'
+                : 'text-[#172A45] dark:text-[#B4C1D4] hover:bg-amber-50/70 dark:hover:bg-[#10223D]'
             } ${collapsed && !isOpenMobile ? 'justify-center' : ''}`}
           >
             <Settings className="w-5 h-5 shrink-0 text-[#66758A] dark:text-[#B4C1D4]" />
@@ -245,16 +247,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Toggle Dark / Light Theme */}
           <button
+            type="button"
             onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-[#172A45] dark:text-[#B4C1D4] hover:bg-[#ECE9E1]/60 dark:hover:bg-[#10223D] transition-colors ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
               collapsed && !isOpenMobile ? 'justify-center' : ''
-            }`}
-            title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+            } text-[#172A45] dark:text-[#B4C1D4] hover:bg-amber-50/70 dark:hover:bg-[#10223D] hover:text-[#B8851B] dark:hover:text-[#FFD675]`}
+            title={isDark ? 'Beralih ke Mode Terang (Putih & Gold)' : 'Beralih ke Mode Gelap (Navy & Gold)'}
           >
             {isDark ? (
               <Sun className="w-5 h-5 text-[#FFD675] shrink-0" />
             ) : (
-              <Moon className="w-5 h-5 text-[#102A50] shrink-0" />
+              <Moon className="w-5 h-5 text-[#B8851B] shrink-0" />
             )}
             {(!collapsed || isOpenMobile) && (
               <span>{isDark ? 'Mode Terang' : 'Mode Gelap'}</span>

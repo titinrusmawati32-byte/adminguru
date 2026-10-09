@@ -45,8 +45,8 @@ export const LoginPage: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
 
   // Form State
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<'admin' | 'guru'>('admin');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -54,18 +54,10 @@ export const LoginPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
 
-  // Switch role and pre-fill convenient credentials for easy testing
+  // Switch role without filling demo credentials
   const handleRoleSelect = (role: 'admin' | 'guru') => {
     setSelectedRole(role);
-    if (role === 'admin') {
-      setUsername('admin');
-      setPassword('admin123');
-      sessionStorage.setItem('preferred_login_role', 'admin');
-    } else {
-      setUsername('guru');
-      setPassword('guru123');
-      sessionStorage.setItem('preferred_login_role', 'guru');
-    }
+    sessionStorage.setItem('preferred_login_role', role);
     setErrorMessage(null);
   };
 
@@ -137,13 +129,13 @@ export const LoginPage: React.FC = () => {
                 type="button"
                 onClick={toggleTheme}
                 className="p-2 rounded-full bg-white dark:bg-[#10223D] border border-[#E0E5EC] dark:border-[#263B58] text-[#172A45] dark:text-[#FFD675] hover:bg-[#ECE9E1] dark:hover:bg-[#172D4B] transition-colors cursor-pointer shadow-xs"
-                title={isDark ? 'Beralih ke Mode Siang' : 'Beralih ke Mode Malam'}
-                aria-label={isDark ? 'Mode Siang' : 'Mode Malam'}
+                title={isDark ? 'Beralih ke Mode Terang (Putih & Gold)' : 'Beralih ke Mode Gelap (Navy & Gold)'}
+                aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}
               >
                 {isDark ? (
                   <Sun className="w-4 h-4 text-[#FFD675]" />
                 ) : (
-                  <Moon className="w-4 h-4 text-[#102A50]" />
+                  <Moon className="w-4 h-4 text-[#B8851B]" />
                 )}
               </button>
             </div>
@@ -540,12 +532,11 @@ export const LoginPage: React.FC = () => {
 
           <div className="space-y-2">
             <p className="font-semibold text-[#172A45] dark:text-[#F5F7FC]">
-              Kredensial Default Uji Coba:
+              Pemulihan Akun Mandiri:
             </p>
-            <div className="p-2.5 rounded-lg bg-[#ECE9E1]/60 dark:bg-[#071225] border border-[#E0E5EC] dark:border-[#263B58] space-y-1 font-mono text-[11px]">
-              <div>• Admin : <code>admin</code> / <code>admin123</code></div>
-              <div>• Guru  : <code>guru</code> / <code>guru123</code></div>
-            </div>
+            <p className="text-[11px] text-[#66758A] dark:text-[#B4C1D4] leading-relaxed">
+              Hubungi Administrator Sistem atau Operator Data Pokok Pendidikan (Dapodik) sekolah Anda untuk pembaruan kata sandi atau sinkronisasi akun pengampu mata pelajaran.
+            </p>
           </div>
 
           <div className="flex justify-end pt-2">

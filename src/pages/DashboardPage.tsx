@@ -48,7 +48,6 @@ import { attendanceService } from '../services/attendanceService';
 import { auditService } from '../services/auditService';
 import { guidanceService } from '../services/guidanceService';
 import { scheduleService } from '../services/scheduleService';
-import { seedService } from '../services/seedService';
 import { studentService } from '../services/studentService';
 import { subjectService } from '../services/subjectService';
 import {
@@ -73,7 +72,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onSelectTab }) => 
   const { showToast } = useNotification();
 
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -120,19 +118,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onSelectTab }) => 
   useEffect(() => {
     loadData();
   }, [role]);
-
-  const handleSeedDemo = async () => {
-    setSeeding(true);
-    try {
-      await seedService.seedDemoData(profile?.teacherId || 'GURU-001', profile?.displayName || 'Guru Pengampu');
-      showToast('Database berhasil diinisialisasi dengan data demo sekolah!', 'success');
-      await loadData();
-    } catch (err: any) {
-      showToast('Gagal memuat data demo: ' + (err?.message || 'Error'), 'error');
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   // If user is ADMIN, render the Admin Monitoring & Verification View directly
   if (role === 'admin') {
@@ -406,28 +391,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onSelectTab }) => 
         <div className="p-4 sm:p-5 rounded-2xl bg-[#D9A62E]/10 border border-[#D9A62E]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#D9A62E]/20 text-[#102A50] dark:text-[#FFD675] flex items-center justify-center shrink-0">
-              <Database className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
             <div>
               <h4 className="text-sm font-bold text-[#172A45] dark:text-[#F5F7FC]">
-                Database Masih Kosong
+                Belum Ada Data Siswa
               </h4>
               <p className="text-xs text-[#66758A] dark:text-[#B4C1D4]">
-                Klik tombol di samping untuk menginisialisasi sampel siswa, rombel, mapel, jadwal, dan asesmen secara instan.
+                Mulai kelola kelas dengan menambahkan daftar siswa melalui menu Kelola Siswa.
               </p>
             </div>
           </div>
           <button
-            onClick={handleSeedDemo}
-            disabled={seeding}
-            className="px-4 py-2 rounded-xl bg-[#102A50] hover:bg-[#0B1B33] active:bg-[#071225] text-white dark:bg-[#D9A62E] dark:text-[#0B1B33] dark:hover:bg-[#F2C75C] text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm shrink-0 disabled:opacity-50"
+            onClick={() => onSelectTab('students')}
+            className="px-4 py-2 rounded-xl bg-[#102A50] hover:bg-[#0B1B33] active:bg-[#071225] text-white dark:bg-[#D9A62E] dark:text-[#0B1B33] dark:hover:bg-[#F2C75C] text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm shrink-0 cursor-pointer"
           >
-            {seeding ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5" />
-            )}
-            <span>Isi Data Demo Sekolah</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Kelola Siswa</span>
           </button>
         </div>
       )}

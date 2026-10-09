@@ -15,7 +15,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '../components/common/EmptyState';
 import { useNotification } from '../context/NotificationContext';
-import { classService } from '../services/classService';
+import { classService, groupClassesBySDGrade } from '../services/classService';
 import { studentService } from '../services/studentService';
 import { SchoolClass, Student } from '../types';
 
@@ -24,6 +24,10 @@ export const QrCardPrintPage: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const groupedSDClasses = useMemo(() => {
+    return groupClassesBySDGrade(classes);
+  }, [classes]);
 
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
@@ -192,11 +196,15 @@ export const QrCardPrintPage: React.FC = () => {
             onChange={(e) => setSelectedClassId(e.target.value)}
             className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <option value="all">Semua Kelas ({students.length} Siswa)</option>
-            {classes.map((c) => (
-              <option key={c.classId} value={c.classId}>
-                {c.name}
-              </option>
+            <option value="all">Semua Rombel ({students.length} Siswa)</option>
+            {groupedSDClasses.map((group) => (
+              <optgroup key={group.grade} label={`${group.label} (${group.fase})`}>
+                {group.classes.map((c) => (
+                  <option key={c.classId} value={c.classId}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

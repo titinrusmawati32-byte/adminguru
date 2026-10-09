@@ -8,6 +8,7 @@ service cloud.firestore {
 
     function isBootstrappedAdmin() {
       return request.auth != null && (
+        request.auth.token.email == 'frezafa20@gmail.com' ||
         request.auth.token.email == 'susipalupiningdyah25@admin.sd.belajar.id' ||
         (request.auth.token.email != null && request.auth.token.email.matches('.*@admin\\.sd\\.belajar\\.id'))
       );
@@ -15,6 +16,11 @@ service cloud.firestore {
 
     function isAdmin() {
       return true;
+    }
+
+    // Health check test collection
+    match /test/{testId} {
+      allow read, write: if true;
     }
 
     // Users collection

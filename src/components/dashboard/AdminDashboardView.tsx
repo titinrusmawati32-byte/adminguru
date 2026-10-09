@@ -47,6 +47,7 @@ import { guidanceService } from '../../services/guidanceService';
 import { classService } from '../../services/classService';
 import { auditService } from '../../services/auditService';
 import { authService } from '../../services/authService';
+import { getFriendlyErrorMessage } from '../../services/firebase';
 import {
   Student,
   Schedule,
@@ -105,7 +106,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onSelect
       setRecentLogs(logs);
     } catch (err: any) {
       console.error('Error loading admin monitoring data:', err);
-      showToast('Gagal memuat data monitoring: ' + err.message, 'error');
+      showToast('Gagal memuat data monitoring: ' + getFriendlyErrorMessage(err), 'error');
     } finally {
       setLoading(false);
     }

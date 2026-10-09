@@ -99,15 +99,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Global Day/Night Theme Toggle in Header */}
         <button
+          type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-xl text-[#66758A] hover:text-[#102A50] dark:text-[#B4C1D4] dark:hover:text-[#FFD675] hover:bg-[#ECE9E1]/60 dark:hover:bg-[#10223D] border border-transparent hover:border-[#E0E5EC] dark:hover:border-[#263B58] transition-colors cursor-pointer"
-          title={isDark ? 'Beralih ke Mode Siang' : 'Beralih ke Mode Malam'}
-          aria-label={isDark ? 'Mode Siang' : 'Mode Malam'}
+          className="p-2 rounded-xl text-[#66758A] hover:text-[#B8851B] dark:text-[#FFD675] dark:hover:text-white hover:bg-amber-50/80 dark:hover:bg-[#10223D] border border-transparent hover:border-[#D9A62E]/40 dark:hover:border-[#D9A62E]/40 transition-colors cursor-pointer"
+          title={isDark ? 'Beralih ke Mode Terang (Putih & Gold)' : 'Beralih ke Mode Gelap (Navy & Gold)'}
+          aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}
         >
           {isDark ? (
             <Sun className="w-5 h-5 text-[#FFD675]" />
           ) : (
-            <Moon className="w-5 h-5 text-[#102A50]" />
+            <Moon className="w-5 h-5 text-[#B8851B]" />
           )}
         </button>
 

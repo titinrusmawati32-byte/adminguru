@@ -22,7 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { auditService } from '../services/auditService';
 import { authService } from '../services/authService';
-import { classService } from '../services/classService';
+import { classService, groupClassesBySDGrade } from '../services/classService';
 import { scheduleService } from '../services/scheduleService';
 import { subjectService } from '../services/subjectService';
 import { DayOfWeek, Schedule, SchoolClass, Subject, UserProfile } from '../types';
@@ -46,6 +46,10 @@ export const SchedulesPage: React.FC<SchedulesPageProps> = ({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const groupedSDClasses = useMemo(() => {
+    return groupClassesBySDGrade(classes);
+  }, [classes]);
 
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [filterClass, setFilterClass] = useState<string>('all');
@@ -227,11 +231,15 @@ export const SchedulesPage: React.FC<SchedulesPageProps> = ({
             onChange={(e) => setFilterClass(e.target.value)}
             className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-800 dark:text-slate-200"
           >
-            <option value="all">Semua Rombel</option>
-            {classes.map((c) => (
-              <option key={c.classId} value={c.classId}>
-                {c.name}
-              </option>
+            <option value="all">Semua Rombel (Kelas 1 - 6 SD)</option>
+            {groupedSDClasses.map((group) => (
+              <optgroup key={group.grade} label={`${group.label} (${group.fase})`}>
+                {group.classes.map((c) => (
+                  <option key={c.classId} value={c.classId}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
 
@@ -529,17 +537,21 @@ export const SchedulesPage: React.FC<SchedulesPageProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Kelas / Rombel *
+                Rombel / Kelas (SD Kelas 1 - 6) *
               </label>
               <select
                 value={formData.classId}
                 onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
-                {classes.map((c) => (
-                  <option key={c.classId} value={c.classId}>
-                    {c.name}
-                  </option>
+                {groupedSDClasses.map((group) => (
+                  <optgroup key={group.grade} label={`${group.label} (${group.fase})`}>
+                    {group.classes.map((c) => (
+                      <option key={c.classId} value={c.classId}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>
